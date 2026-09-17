@@ -15,7 +15,10 @@ class GlobalResponseNormalisation(eqx.Module):
         self.eps = eps
 
     def __call__(self, x, mask=1.0):
-        gx = jnp.sqrt(jnp.sum(mask * x * x, axis=(1, 2), keepdims=True))
+        gx = jnp.sqrt(
+            jnp.sum(x * x * mask, axis=(1, 2), keepdims=True)
+            + self.eps
+        )
         nx = gx / (gx.mean(axis=0, keepdims=True) + self.eps)
         return x + self.gamma * (x * nx) + self.beta
 
@@ -54,6 +57,7 @@ class ConvNeXtV2Block(eqx.Module):
         )
 
     def __call__(self, x, mask=1.0):
+        x = x * mask
         y = self.conv(x) * mask
         y = utils.spatial_vmap(self.ln)(y)
         y = self.proj1(y)
