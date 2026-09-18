@@ -99,6 +99,7 @@ class DownsampleBlock(eqx.Module):
             mask = jnp.ones_like(x[:1])
 
         y = utils.spatial_vmap(self.ln)(x)
+        y = y * mask
         y = self.conv(y)
         mask = 1.0 - self.mask_pool(1.0 - mask)
 
@@ -114,8 +115,7 @@ class ConvNeXtV2(eqx.Module):
         keys = utils.key_gen(key)
         self.stages = len(depths)
 
-        blocks = []
-        downs = []
+        blocks, downs = [], []
 
         for stage in range(self.stages):
             stage_blocks = tuple(
