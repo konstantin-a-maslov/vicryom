@@ -46,11 +46,11 @@ class Stem(eqx.Module):
 
         for stage in range(self.stages):
             mask = 1.0 - self.mask_pool(1.0 - mask)
-
             y = self.convs[stage](y)
             y = y * mask
             y = utils.spatial_vmap(self.lns[stage])(y)
             y = jax.nn.gelu(y)
+            y = y * mask
             outputs.append(y)
 
         return outputs, mask
