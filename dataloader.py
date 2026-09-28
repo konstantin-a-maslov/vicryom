@@ -4,6 +4,7 @@ import rasterio
 import rasterio.windows
 import json
 import functools
+from tqdm import tqdm
 
 
 def get_dataloader(
@@ -15,6 +16,7 @@ def get_dataloader(
     batch_size=16,
     worker_count=8,
     worker_buffer_size=2,
+    name=None,
     rng_seed=42,
 ):
     with open(manifest_path, "r") as src:
@@ -28,7 +30,7 @@ def get_dataloader(
         shuffle=False,
         seed=rng_seed,
     )
-    random_sample = RandomSample(tile_info, sample_size=sample_size)
+    random_sample = RandomSample(tile_info, sample_size=sample_size, name=name)
     augmentation = Augmentation()
     random_mask = RandomMask(patch_size=mask_patch_size, rate=masking_rate)
 
@@ -54,15 +56,15 @@ def load_valid_centres(npy_path):
 
 
 class RandomSample(grain.transforms.RandomMap):
-    def __init__(self, tile_info, sample_size):
+    def __init__(self, tile_info, sample_size, name=None):
+        self.name = name
         self.sample_size = sample_size
         self.tiles = []
         counts = []
 
-        for tile in tile_info:
+        for tile in tqdm(tile_info, desc=f"{f'{self.name}:' if self.name is not None else ''} Counting data..."):
             centres = load_valid_centres(tile["index_path"])
             count = len(centres)
-
             if count > 0:
                 self.tiles.append(tile)
                 counts.append(count)
@@ -157,16 +159,23 @@ class RandomMask(grain.transforms.RandomMap):
 ########################### TO REMOVE
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
+    import gc
 
-    loader = get_dataloader("data/manifest.json", "train")
+    loader = get_dataloader("data/manifest.json", "train", name="Train dataloader")
 
     _, axs = plt.subplots(nrows=2, ncols=16, figsize=(16, 3))
 
-    for batch in loader:
+    for i, batch in enumerate(loader):
+        if i < 32:
+            continue
+        
         for i, (image, mask) in enumerate(zip(*batch)):
             axs[0][i].imshow(image[0], cmap="gray")
             axs[1][i].imshow(mask[0], cmap="cividis")
         break
+
+    del loader
+    gc.collect()
 
     for ax in axs.flatten():
         ax.axis("off")
