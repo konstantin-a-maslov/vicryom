@@ -15,6 +15,7 @@ def get_dataloader(
     mask_patch_size=32,
     masking_rate=0.6,
     batch_size=16,
+    num_epochs=None,
     worker_count=8,
     worker_buffer_size=1,
     name=None,
@@ -27,7 +28,7 @@ def get_dataloader(
     source = grain.sources.RangeDataSource(0, len(tile_info), 1)
     sampler = grain.samplers.IndexSampler(
         num_records=len(tile_info),
-        num_epochs=None,
+        num_epochs=num_epochs,
         shuffle=False,
         seed=rng_seed,
     )
@@ -40,7 +41,9 @@ def get_dataloader(
         sampler=sampler,
         operations=[
             random_sample,
+        ] + ([
             augmentation,
+        ] if subset == "train" else []) + [
             random_mask,
             grain.transforms.Batch(batch_size=batch_size, drop_remainder=True),
         ],
@@ -125,11 +128,11 @@ class Augmentation(grain.transforms.RandomMap):
             image = np.rot90(image, k=k, axes=(1, 2))
 
         # reflection
-        if rng.uniform() < 0.5:
+        if rng.uniform() < self.flip_p:
             image = np.flip(image, axis=1)
 
         # linear intensity augmentation
-        if rng.random() < self.flip_p:
+        if rng.random() < self.intensity_p:
             gain = np.float32(rng.uniform(*self.gain_range))
             brightness = np.float32(rng.uniform(*self.brightness_range))
             image *= gain
