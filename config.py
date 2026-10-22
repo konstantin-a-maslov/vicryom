@@ -5,7 +5,7 @@ import types
 
 def get_config():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config_path", default="config.json")
+    parser.add_argument("--config", default="config.json")
 
     commands = parser.add_subparsers(dest="command", required=True)
 
@@ -22,11 +22,11 @@ def get_config():
     infer = commands.add_parser("infer")
     infer.add_argument("--batch_size", type=int)
     infer.add_argument("--checkpoint", type=str, required=True)
-    infer.add_argument("--output", type=int, required=True)
+    infer.add_argument("--output", type=str, required=True)
 
     args = parser.parse_args()
     
-    config = load_json_config(args.config_path)
+    config = load_json_config(args.config)
     config.command = args.command
     subconfig = getattr(config, config.command)
 
