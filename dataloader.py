@@ -3,6 +3,7 @@ import numpy as np
 import rasterio
 import rasterio.windows
 import json
+import pathlib
 import functools
 from tqdm import tqdm
 import sys
@@ -15,37 +16,56 @@ def get_dataloader(
     mask_patch_size=32,
     masking_rate=0.6,
     batch_size=16,
+    num_records=None,
     num_epochs=None,
     worker_count=8,
     worker_buffer_size=1,
     name=None,
     rng_seed=42,
 ):
+    if subset not in {"train", "val"}:
+        raise ValueError("Subset must be either train or val")
+
+    manifest_path = pathlib.Path(manifest_path)
     with open(manifest_path, "r") as src:
         manifest = json.load(src)
     tile_info = manifest[subset]
+    for item in tile_info:
+        item["tile_path"] = manifest_path.parent / item["tile_path"]
+        item["index_path"] = manifest_path.parent / item["index_path"]
 
-    source = grain.sources.RangeDataSource(0, len(tile_info), 1)
+    if num_records is None:
+        num_records = manifest[f"{subset}_count"]
+
+    source = grain.sources.RangeDataSource(0, num_records, 1)
     sampler = grain.samplers.IndexSampler(
-        num_records=len(tile_info),
-        num_epochs=num_epochs,
+        num_records=num_records,
+        num_epochs=(num_epochs if subset == "train" else 1),
         shuffle=False,
         seed=rng_seed,
     )
-    random_sample = RandomSample(tile_info, sample_size=sample_size, name=name)
-    augmentation = Augmentation()
-    random_mask = RandomMask(patch_size=mask_patch_size, rate=masking_rate)
+    sample_op = Sample(
+        tile_info, 
+        sample_size=sample_size, 
+        training=(subset == "train"),
+        name=name,
+    )
+    augmentation_op = Augmentation()
+    random_mask_op = RandomMask(patch_size=mask_patch_size, rate=masking_rate)
 
     loader = grain.DataLoader(
         data_source=source,
         sampler=sampler,
         operations=[
-            random_sample,
+            sample_op,
         ] + ([
-            augmentation,
+            augmentation_op,
         ] if subset == "train" else []) + [
-            random_mask,
-            grain.transforms.Batch(batch_size=batch_size, drop_remainder=True),
+            random_mask_op,
+            grain.transforms.Batch(
+                batch_size=batch_size, 
+                drop_remainder=(subset == "train"),
+            ),
         ],
         worker_count=worker_count,
         worker_buffer_size=worker_buffer_size,
@@ -62,34 +82,44 @@ def get_dataloader(
     return loader
 
 
-@functools.lru_cache(maxsize=64)
+@functools.lru_cache(max_size=None)
 def load_valid_centres(npy_path):
     return np.load(npy_path, mmap_mode="r")
 
 
-class RandomSample(grain.transforms.RandomMap):
-    def __init__(self, tile_info, sample_size, name=None):
+class Sample(grain.transforms.RandomMap):
+    def __init__(self, tile_info, sample_size, training=True, name=None):
         self.name = name
         self.sample_size = sample_size
+        self.training = training
         self.tiles = []
         counts = []
 
         for tile in tqdm(tile_info, desc=f"{f'{self.name}:' if self.name is not None else ''} Counting data..."):
             centres = load_valid_centres(tile["index_path"])
-            count = len(centres)
+            count = tile["count"]
             if count > 0:
                 self.tiles.append(tile)
                 counts.append(count)
 
         weights = np.asarray(counts, dtype=np.float32)
         self.probs = weights / weights.sum()
+        self.cumulative_counts = np.cumsum(counts, dtype=np.int64)
 
     def random_map(self, sample_id, rng):
-        tile_id = rng.choice(len(self.tiles), p=self.probs)
-        tile = self.tiles[tile_id]
+        if self.training:
+            tile_id = rng.choice(len(self.tiles), p=self.probs)
+            tile = self.tiles[tile_id]
+            centres = load_valid_centres(tile["index_path"])
+            row, col = centres[rng.integers(len(centres))]
 
-        centres = load_valid_centres(tile["index_path"])
-        row, col = centres[rng.integers(len(centres))]
+        else:
+            tile_id = np.searchsorted(self.cumulative_counts, sample_id, side="right")
+            tile = self.tiles[tile_id]
+
+            offset = (self.cumulative_counts[tile_id - 1] if tile_id > 0 else 0)
+            centres = load_valid_centres(tile["index_path"])
+            row, col = centres[sample_id - offset]
 
         with rasterio.open(tile["tile_path"]) as src:
             window = rasterio.windows.Window(
