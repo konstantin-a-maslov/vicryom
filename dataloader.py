@@ -82,7 +82,7 @@ def get_dataloader(
     return loader
 
 
-@functools.lru_cache(max_size=None)
+@functools.lru_cache(maxsize=None)
 def load_valid_centres(npy_path):
     return np.load(npy_path, mmap_mode="r")
 
@@ -116,7 +116,6 @@ class Sample(grain.transforms.RandomMap):
         else:
             tile_id = np.searchsorted(self.cumulative_counts, sample_id, side="right")
             tile = self.tiles[tile_id]
-
             offset = (self.cumulative_counts[tile_id - 1] if tile_id > 0 else 0)
             centres = load_valid_centres(tile["index_path"])
             row, col = centres[sample_id - offset]
@@ -196,149 +195,3 @@ class RandomMask(grain.transforms.RandomMap):
             self.patch_size, axis=2,
         )
         return image, mask
-
-
-########################### TO REMOVE
-if __name__ == "__main__":
-    import matplotlib.pyplot as plt
-    # import gc
-
-    loader = get_dataloader("data/manifest.json", "train", name="Train dataloader")
-
-    for i, batch in enumerate(loader):
-        
-        _, axs = plt.subplots(nrows=2, ncols=16, figsize=(16, 3))
-
-        for j, (image, mask) in enumerate(zip(*batch)):
-            axs[0][j].imshow(image[0], cmap="gray")
-            axs[1][j].imshow(mask[0], cmap="cividis")
-
-        for ax in axs.flatten():
-            ax.axis("off")
-    
-        plt.tight_layout()
-        plt.show()
-
-        if i >= 8:
-            break
-
-    # del loader
-    # gc.collect()
-
-
-# confirmed ~linear scaling with worker_count, and worker_buffer_size=1 is good
-# import gc
-# import time
-
-
-# def benchmark_loader(
-#     manifest_path="data/manifest.json",
-#     subset="train",
-#     worker_counts=(0, 1, 2, 4, 8),
-#     worker_buffer_size=2,
-#     batch_size=16,
-#     warmup_batches=16,
-#     benchmark_batches=1024,
-# ):
-#     results = []
-
-#     for worker_count in worker_counts:
-#         print(f"\n{'=' * 60}")
-#         print(
-#             f"worker_count={worker_count}, "
-#             f"worker_buffer_size={worker_buffer_size}"
-#         )
-#         print(f"{'=' * 60}")
-
-#         loader = get_dataloader(
-#             manifest_path,
-#             subset,
-#             batch_size=batch_size,
-#             worker_count=worker_count,
-#             worker_buffer_size=worker_buffer_size,
-#             name=f"Workers={worker_count}",
-#         )
-
-#         iterator = iter(loader)
-
-#         # Warm-up:
-#         # - worker process startup
-#         # - imports in spawned workers
-#         # - Rasterio/GDAL initialization
-#         # - initial queue filling
-#         print(f"Warming up ({warmup_batches} batches)...")
-#         for _ in range(warmup_batches):
-#             next(iterator)
-
-#         print(f"Benchmarking ({benchmark_batches} batches)...")
-
-#         start = time.perf_counter()
-
-#         for _ in range(benchmark_batches):
-#             batch = next(iterator)
-
-#         elapsed = time.perf_counter() - start
-
-#         batches_per_second = benchmark_batches / elapsed
-#         samples_per_second = (
-#             benchmark_batches * batch_size / elapsed
-#         )
-#         ms_per_batch = elapsed / benchmark_batches * 1000
-
-#         print(f"Elapsed:       {elapsed:8.2f} s")
-#         print(f"Batch time:    {ms_per_batch:8.2f} ms")
-#         print(f"Throughput:    {batches_per_second:8.2f} batches/s")
-#         print(f"               {samples_per_second:8.2f} samples/s")
-
-#         results.append(
-#             {
-#                 "worker_count": worker_count,
-#                 "worker_buffer_size": worker_buffer_size,
-#                 "elapsed_s": elapsed,
-#                 "ms_per_batch": ms_per_batch,
-#                 "batches_per_s": batches_per_second,
-#                 "samples_per_s": samples_per_second,
-#             }
-#         )
-
-#         del batch
-#         del iterator
-#         del loader
-#         gc.collect()
-
-#     print("\n\nRESULTS")
-#     print(
-#         f"{'workers':>8} "
-#         f"{'seconds':>10} "
-#         f"{'ms/batch':>12} "
-#         f"{'batch/s':>12} "
-#         f"{'samples/s':>12}"
-#     )
-
-#     for r in results:
-#         print(
-#             f"{r['worker_count']:>8} "
-#             f"{r['elapsed_s']:>10.2f} "
-#             f"{r['ms_per_batch']:>12.2f} "
-#             f"{r['batches_per_s']:>12.2f} "
-#             f"{r['samples_per_s']:>12.2f}"
-#         )
-
-#     return results
-
-
-# if __name__ == "__main__":
-#     # results = benchmark_loader(
-#     #     worker_counts=(0, 1, 2, 4, 8),
-#     #     worker_buffer_size=2,
-#     #     batch_size=16,
-#     #     warmup_batches=16,
-#     #     benchmark_batches=1024,
-#     # )
-#     for buffer_size in (1, 2, 4, 8):
-#         benchmark_loader(
-#             worker_counts=(8,),
-#             worker_buffer_size=buffer_size,
-#             benchmark_batches=1024,
-#         )
-    

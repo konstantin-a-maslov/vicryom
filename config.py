@@ -1,6 +1,7 @@
 import argparse
 import json
 import types
+from absl import flags
 
 
 def get_config():
@@ -11,9 +12,9 @@ def get_config():
 
     # train
     train = commands.add_parser("train")
-    train.add_argument("--dataset", type=str)
+    train.add_argument("--manifest", type=str)
     train.add_argument("--learning_rate", type=float)
-    train.add_argument("--n_epochs", type=int)
+    train.add_argument("--num_epochs", type=int)
     train.add_argument("--batch_size", type=int)
     train.add_argument("--initial_checkpoint", type=str)
     train.add_argument("--checkpoint", type=str, required=True)
@@ -34,6 +35,10 @@ def get_config():
         if val is None and getattr(subconfig, arg, None) is not None:
             continue
         setattr(subconfig, arg, val)
+
+    # grain patch
+    if not flags.FLAGS.is_parsed():
+        flags.FLAGS(["vicryom"])
 
     return config
 
