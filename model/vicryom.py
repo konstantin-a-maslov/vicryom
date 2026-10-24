@@ -62,7 +62,7 @@ class ViCryoM(eqx.Module):
             key=next(keys),
         )
 
-    def __call__(self, x, mask=None):
+    def __call__(self, x, mask=None, return_only_last=False):
         if mask is None:
             mask = jnp.ones_like(x[:1])
 
@@ -75,6 +75,8 @@ class ViCryoM(eqx.Module):
         skips = enc_outputs[:-1][::-1]
 
         embds, outputs = self.dec(dec_input, skips)
+        if return_only_last:
+            embds, outputs = [embds[-1]], [outputs[-1]]
         
         return embds, outputs
 

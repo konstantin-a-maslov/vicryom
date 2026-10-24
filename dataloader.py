@@ -177,7 +177,7 @@ class Augmentation(grain.transforms.RandomMap):
             gamma = np.float32(np.exp(log_gamma))
             np.power(image, gamma, out=image)
 
-        return image
+        return np.ascontiguousarray(image)
 
 
 class RandomMask(grain.transforms.RandomMap):
