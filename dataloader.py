@@ -189,7 +189,7 @@ class RandomMask(grain.transforms.RandomMap):
         _, h, w = image.shape
         mask_size = (1, h // self.patch_size, w // self.patch_size)
         mask = rng.uniform(size=mask_size)
-        mask = (mask < self.rate).astype(np.uint8)
+        mask = (mask >= self.rate).astype(np.uint8)
         mask = np.repeat(
             np.repeat(mask, self.patch_size, axis=1),
             self.patch_size, axis=2,

@@ -23,7 +23,8 @@ def get_config():
     infer = commands.add_parser("infer")
     infer.add_argument("--batch_size", type=int)
     infer.add_argument("--checkpoint", type=str, required=True)
-    infer.add_argument("--output", type=str, required=True)
+    infer.add_argument("--input", type=str, required=True)
+    infer.add_argument("--output_folder", type=str, required=True)
 
     args = parser.parse_args()
     
