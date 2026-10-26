@@ -48,7 +48,10 @@ def run(cfg):
             for step in range(steps_per_epoch):
                 images, masks = next(train_iter)
                 model, opt_state, running_loss = train_step(model, opt_state, images, masks, running_loss)
+
                 pbar.update(1)
+                if (step + 1) % 25 == 0:
+                    pbar.set_description(f"Train ({step + 1}/{steps_per_epoch}): loss={(running_loss / (step + 1)):.6f}")
         train_loss = float(jax.device_get(running_loss / steps_per_epoch))
 
         # Val check
@@ -73,7 +76,7 @@ def run(cfg):
             logger = CSVLogger("logs/test_log.csv", log_record.keys())
         logger.log(log_record)
 
-        print(f"val_loss={val_loss:.4f}, best_val_loss={best_loss:.4f} at Epoch {best_epoch}, train_loss={train_loss:.4f}")
+        print(f"val_loss={val_loss:.6f}, best_val_loss={best_loss:.6f} at Epoch {best_epoch}, train_loss={train_loss:.6f}")
 
 
 def get_dataloaders(cfg):
@@ -154,7 +157,7 @@ def loss_fn(model, images, masks, embd_lambda, remat=False):
 
 
 def masked_pyramid_mse(xs, y, mask):
-    valid = (mask == 0).astype(jnp.float32)
+    masked = (mask == 0).astype(jnp.float32)
     _, H, W = y.shape
     mse = 0.0
 
@@ -166,8 +169,8 @@ def masked_pyramid_mse(xs, y, mask):
             C = z.shape[0]
             return z.reshape(C, h, sh, w, sw).mean(axis=(2, 4))
 
-        weights = (downsample(valid) == 1.0).astype(jnp.float32)
-        target = downsample(y * valid)
+        weights = (downsample(masked) == 1.0).astype(jnp.float32)
+        target = downsample(y * masked)
         squared_error = (x - target) ** 2
 
         pyramid_mse = jnp.sum(squared_error * weights) / jnp.maximum(jnp.sum(weights), 1.0)
