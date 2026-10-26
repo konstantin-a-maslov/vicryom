@@ -18,7 +18,8 @@ def train(cfg):
 
 
 def infer(cfg):
-    raise NotImplementedError()
+    import infer
+    infer.run(cfg)
 
 
 if __name__ == "__main__":
