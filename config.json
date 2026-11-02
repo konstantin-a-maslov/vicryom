@@ -1,0 +1,18 @@
+{
+    "train": {
+        "manifest": "/home/konstantin/datasets/vicryom/manifest.json",
+        "patch_size": 512,
+        "learning_rate": 0.001,
+        "embd_lambda": 0.1, 
+        "num_epochs": 500,
+        "num_records": 10000, 
+        "batch_size": 16,
+        "worker_count": 16,
+        "worker_buffer_size": 1,
+        "remat_model": false
+    },
+    "infer": {
+        "patch_size": 512,
+        "batch_size": 64
+    }
+}
