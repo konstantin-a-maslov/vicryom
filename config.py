@@ -1,6 +1,7 @@
 import argparse
 import json
 import types
+import pathlib
 from absl import flags
 
 
@@ -12,19 +13,20 @@ def get_config():
 
     # train
     train = commands.add_parser("train")
-    train.add_argument("--manifest", type=str)
+    train.add_argument("--manifest", type=pathlib.Path)
     train.add_argument("--learning_rate", type=float)
     train.add_argument("--num_epochs", type=int)
     train.add_argument("--batch_size", type=int)
-    train.add_argument("--initial_checkpoint", type=str)
-    train.add_argument("--checkpoint", type=str, required=True)
+    train.add_argument("--initial_checkpoint", type=pathlib.Path)
+    train.add_argument("--checkpoint", type=pathlib.Path, required=True)
+    train.add_argument("--log", type=pathlib.Path)
 
     # infer
     infer = commands.add_parser("infer")
     infer.add_argument("--batch_size", type=int)
-    infer.add_argument("--checkpoint", type=str, required=True)
-    infer.add_argument("--input", type=str, required=True)
-    infer.add_argument("--output_folder", type=str, required=True)
+    infer.add_argument("--checkpoint", type=pathlib.Path, required=True)
+    infer.add_argument("--input", type=pathlib.Path, required=True)
+    infer.add_argument("--output_folder", type=pathlib.Path, required=True)
 
     args = parser.parse_args()
     

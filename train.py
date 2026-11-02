@@ -72,8 +72,8 @@ def run(cfg):
             train_loss=train_loss,
             val_loss=val_loss,
         )
-        if logger is None:
-            logger = CSVLogger("logs/test_log.csv", log_record.keys())
+        if logger is None and cfg.log is not None:
+            logger = CSVLogger(cfg.log, log_record.keys())
         logger.log(log_record)
 
         print(f"val_loss={val_loss:.6f}, best_val_loss={best_loss:.6f} at Epoch {best_epoch}, train_loss={train_loss:.6f}")
